@@ -3,12 +3,13 @@ import argparse,hashlib,importlib.util,importlib.metadata,json,os,shutil,sys,url
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.1.0'
+VERSION='0.1.1'
 PY_VERSION='3.14.10'
 PY_URL=f'https://www.python.org/ftp/python/{PY_VERSION}/python-{PY_VERSION}-embed-amd64.zip'
 PY_SHA='90905e64a840557d8c1bc4f5b74db3d7ee85e3ffb217611cac1c7813acea4159'
 FILES=['server.py','discovery.py','discovery_learning.py','discovery_venues.py','start.ps1','stop.ps1','launcher-common.ps1','启动研读.cmd','停止研读.cmd','requirements.txt','LICENSE','NOTICE','THIRD_PARTY_NOTICES.md','.gitignore']
 WEB=['index.html','workspace.js','reader.js','reader.css','text-layer.css','discovery-ui.js','discovery-enhancements.js','discovery.css']
+MAILING=['__init__.py','core.py','aliyun.py','store.py','demo.py','README.md']
 
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 def copy(source,target):
@@ -35,7 +36,10 @@ def build(pdfjs,output):
     staging.mkdir()
     for name in FILES:copy(ROOT/name,staging/name)
     copy(ROOT/('README-release.md' if (ROOT/'README-release.md').exists() else 'README.md'),staging/'README.md')
+    copy(ROOT/'RELEASE_NOTES.md',staging/'RELEASE_NOTES.md')
     for name in WEB:copy(ROOT/'web'/name,staging/'web'/name)
+    for name in MAILING:copy(ROOT/'mailing'/name,staging/'mailing'/name)
+    copy(ROOT/'tools/preview_morning_mail.py',staging/'tools/preview_morning_mail.py')
     if not pdfjs.is_dir():raise ValueError('Provide pdfjs-dist 5.6.205 via --pdfjs')
     metadata=json.loads((pdfjs/'package.json').read_text(encoding='utf-8'))
     if metadata['version']!='5.6.205':raise ValueError('Expected pdfjs-dist 5.6.205')
@@ -53,6 +57,9 @@ def build(pdfjs,output):
         source=output/(source.name+'-'+str(time.time_ns()))
     shutil.copytree(staging,source)
     copy(ROOT/'tools/build_release.py',source/'tools/build_release.py')
+    copy(ROOT/'tools/verify_release.py',source/'tools/verify_release.py')
+    for name in ['test_server.py','test_discovery.py','test_discovery_learning.py','test_morning_mail.py','preview_discovery.py']:
+        copy(ROOT/'tests'/name,source/'tests'/name)
     download=ROOT/'build/downloads'/f'python-{PY_VERSION}-embed-amd64.zip'
     download.parent.mkdir(parents=True,exist_ok=True)
     if not download.exists():
