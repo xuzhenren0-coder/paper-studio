@@ -1,0 +1,43 @@
+.study-scroll{padding:22px;overflow:auto;min-height:0;flex:1}.study-heading{display:flex;align-items:center;justify-content:space-between}.study-heading span,.study-source{font-size:11px;color:var(--muted)}.study-source{margin-top:12px;line-height:1.8;overflow-wrap:anywhere;max-height:76px;overflow:auto}.study-steps{list-style:none;padding:0;margin:22px 0}.study-steps li{border-bottom:1px solid var(--line)}.study-steps button{width:100%;padding:13px 0;text-align:left;font-size:13px}.study-steps .done button{color:var(--accent)}.study-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.study-evidence{margin:8px 0 18px}.evidence-row{display:flex;gap:8px;align-items:flex-start;margin-top:6px}.evidence-quote{flex:1;min-width:0;background:#f2f7f8;border-left:2px solid #7ea7ad;padding:9px;text-align:left;font:12px/1.8 Georgia,serif;color:#476974;max-height:104px;overflow:auto;white-space:pre-wrap}.evidence-row>.text-button{flex-shrink:0;margin-top:8px}.evidence-dialog .full{margin-top:9px}.exercise-review{margin-top:20px;border-top:1px solid var(--line)}#exerciseHistory{margin-top:20px}#exerciseHistory>summary{font-size:12px;cursor:pointer;padding:12px 0}.exercise-entry{padding:15px 0;border-top:1px solid var(--line);font-size:12px;line-height:1.9;overflow-wrap:anywhere}.exercise-entry blockquote{margin:8px 0;color:#6b818b;font-family:Georgia,serif}.exercise-entry p{white-space:pre-wrap}.exercise-revision{color:#226c70}.exercise-entry small{color:var(--muted)}.exercise-entry button{margin-top:8px}.next-paper{border-top:1px solid var(--line);padding:18px 0;overflow-wrap:anywhere}.next-paper h3{font-size:14px;line-height:1.7}.next-paper p{font-size:12px;line-height:1.8;margin-top:9px}.next-paper small{display:block;margin-top:8px;font-size:10px;color:var(--muted)}.next-paper a{display:inline-block;font-size:12px;margin:12px 12px 0 0}.next-paper-results>.primary{margin-top:14px}.original-attempt{margin-bottom:14px;font-size:12px}.original-attempt summary{cursor:pointer;color:#527482}.original-attempt p{white-space:pre-wrap;line-height:1.8;padding:10px;background:#f4f7f8}.panel-tabs{gap:18px}@media(max-width:500px){.study-scroll{padding:20px}.panel-tabs{gap:17px}}
+.study-tools{display:flex;gap:20px;margin-top:12px}.next-paper-results{margin-top:10px}
+
+#studyGoals{margin-top:18px}#studyGoals>summary{cursor:pointer;font-size:12px;line-height:1.8;color:#527482;overflow-wrap:anywhere}
+
+.feedback-item{padding:16px 0;border-top:1px solid var(--line)}.feedback-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.feedback-heading h3{font-size:13px;margin:0}.feedback-status{font-size:10px;white-space:nowrap;color:#477778}.feedback-status.contradicted{color:#a15b35}.feedback-status.insufficient,.feedback-missing{color:#8b7658}.feedback-claim{font-size:12px;line-height:1.9;margin:12px 0;overflow-wrap:anywhere}.feedback-claim p{white-space:pre-wrap}.feedback-claim .citation{display:block;width:100%;margin-top:8px}.feedback-missing{display:block;font-size:10px}.feedback-hint{font-size:12px;line-height:1.9;color:#476974;white-space:pre-wrap}.feedback-analysis{font-size:12px;line-height:1.9;margin:10px 0}.feedback-analysis summary{cursor:pointer;color:var(--muted)}.feedback-analysis p{white-space:pre-wrap;overflow-wrap:anywhere}.feedback-item>.text-button{margin-top:10px}
+
+.evidence-content { flex: 1; min-width: 0; }
+.evidence-content .evidence-quote { width: 100%; font: inherit; font-size: 13px; max-height: none; }
+.evidence-excerpt { margin: 8px 0; font-size: 12px; color: #526d79; }
+.evidence-excerpt summary { cursor: pointer; }
+.evidence-excerpt blockquote { margin: 10px 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.8 Georgia, serif; }
+.feedback-next { width: 100%; padding: 12px; margin-bottom: 12px; background: #eaf3f2; color: #245f64; text-align: left; font-size: 13px; }
+.feedback-revise { margin-left: 14px; }
+.practice-scroll textarea, .notes-scroll textarea { font-size: 14px; line-height: 1.85; }
+.feedback-heading h3, .feedback-claim, .feedback-hint, .ai-text { font-size: 14px; }
+.feedback-status, .result-title, .citation, .citation em, .description { font-size: 12px; }
+.study-source, .study-heading span, .original-attempt { font-size: 12px; color: #526974; }
+
+.answer-card { border: 1px solid var(--line); border-radius: 9px; margin: 8px 0; }
+.answer-card[open] { border-color: #9bbcbf; }
+.answer-heading { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 12px; cursor: pointer; }
+.answer-heading::-webkit-details-marker { display: none; }
+.answer-heading::before { content: '▸'; color: var(--accent); }
+.answer-card[open] > .answer-heading::before { content: '▾'; }
+.answer-title { flex: 1; font-size: 14px; font-weight: 600; }
+.answer-status { font-size: 12px; color: #477778; }
+.answer-status[data-status="contradicted"], .answer-status[data-status="stale"] { color: #92512f; }
+.answer-status[data-status="insufficient"] { color: #725d40; }
+.answer-body { padding: 0 12px 12px; }
+.answer-body > label { margin-top: 4px; }
+.answer-body .study-evidence { margin-bottom: 0; }
+.answer-feedback:not(:empty) { margin-top: 12px; padding: 10px 12px 0; border-radius: 7px; background: #f3f8f8; }
+.answer-feedback .feedback-item { padding-top: 4px; border-top: 0; }
+.feedback-stale, .evidence-undo { margin: 0 0 8px; padding: 8px; color: #814622; background: #fff3e7; border-radius: 5px; font-size: 12px; }
+.evidence-label { font-size: 12px; font-weight: 600; margin-top: 10px; }
+.evidence-undo { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 0; }
+.evidence-undo button { min-height: 32px; }
+.run-history, .run-history-entry { border-top: 1px solid var(--line); margin-top: 10px; }
+.run-history > summary, .run-history-entry > summary { padding: 10px 0; cursor: pointer; font-size: 13px; overflow-wrap: anywhere; }
+.result-title { flex-wrap: wrap; }
+#feedbackRunInfo { margin-top: 14px; }
+.answer-heading:focus-visible, .run-history summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

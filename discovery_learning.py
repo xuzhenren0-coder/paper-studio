@@ -73,7 +73,7 @@ class DiscoveryLearning:
             for n in c.execute('SELECT paper_id,body,updated FROM notes ORDER BY updated DESC'):
                 body=json.loads(n['body'])
                 if any(str(body.get(f,'')).strip() for f in fields):learned.append((n['updated'],n['paper_id']))
-            learned.extend((r['created'],r['paper_id']) for r in c.execute('SELECT paper_id,MAX(created) AS created FROM runs GROUP BY paper_id'))
+            learned.extend((r['created'],r['paper_id']) for r in c.execute("SELECT paper_id,MAX(created) AS created FROM runs WHERE task IN ('translation','feedback','ask','critique') GROUP BY paper_id"))
             for _,pid in sorted(learned,reverse=True)[:6]:add(pid,'近期学习记录')
             for r in c.execute('SELECT c.body FROM discovery_bookmarks b JOIN discovery_candidates c ON c.id=b.id ORDER BY b.created DESC LIMIT 6'):
                 candidate=json.loads(r['body']);seeds[candidate['key']]={'key':candidate['key'],'title':candidate['title'],'abstract':candidate.get('abstract',''),'reason':'收藏论文','weight':3}

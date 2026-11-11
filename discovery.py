@@ -286,8 +286,18 @@ class Discovery:
                 for p in c.execute('SELECT id,metadata FROM papers'):
                     if r['doi'] and doi(json.loads(p['metadata']).get('doi'))==r['doi']:return {'paper_id':p['id'],'existing':True}
             if not r['pdf_url']:raise ValueError('没有可用的公开 PDF 链接，请从来源页面获取后上传。')
-            raw=download_pdf(r['pdf_url']);paper=self.importer(raw,(fingerprint(r['title'])[:80] or 'paper')+'.pdf')
-            metadata=paper['metadata'];metadata.update(doi=r['doi'],published=r['published'],source=r.get('official_url') or r['landing_url'],venue_name=r['source'],abstract=r['abstract'],publisher=r.get('publisher',''),review_status='预印本' if r['publication_kind']=='预印本或存储库版本' else '待核实',discovery_providers=r['providers'])
+            raw=download_pdf(r['pdf_url'])
+            from pypdf import PdfReader
+            import io
+            pdf=PdfReader(io.BytesIO(raw));front=' '.join((page.extract_text() or '') for page in pdf.pages[:2])
+            found={doi(value.rstrip('.,;)')) for value in re.findall(r'10\.\d{4,9}/[^\s<>"\u201c\u201d]+',front,re.I)}
+            expected=doi(r['doi'])
+            # Text extraction can wrap a DOI across lines. Do not confuse a
+            # wrapped match with a different document, or accept a DOI prefix.
+            matched=bool(expected and re.search(r'(?<![A-Za-z0-9])'+r'\s*'.join(re.escape(ch) for ch in expected)+r'(?![A-Za-z0-9])',front,re.I))
+            if expected and found and not matched:raise ValueError('下载PDF中的DOI与检索候选不一致，请从出版方页面核对正确版本。')
+            paper=self.importer(raw,(fingerprint(r['title'])[:80] or 'paper')+'.pdf')
+            metadata=paper['metadata'];metadata.update(doi=r['doi'],published=r['published'],source=r.get('official_url') or r['landing_url'],venue_name=r['source'],abstract=r['abstract'],publisher=r.get('publisher',''),review_status='预印本' if r['publication_kind']=='预印本或存储库版本' else '待核实',discovery_providers=r['providers'],pdf_identity='PDF包含匹配DOI' if matched else 'PDF前两页未识别DOI，身份待核实')
             with self.db() as c:
                 c.execute('UPDATE papers SET title=?,metadata=? WHERE id=?',(r['title'],json.dumps(metadata,ensure_ascii=False),paper['id']))
                 c.execute('INSERT OR REPLACE INTO discovery_imports VALUES(?,?)',(key,paper['id']))

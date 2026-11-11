@@ -1,0 +1,18 @@
+{
+  "provenance": "Manually authored synthetic vehicle-control examples for offline acceptance. Not a published paper or expert-certified benchmark. Expected labels are evaluation rubrics, not results from a real model.",
+  "source": "The lateral controller was evaluated in simulation at 20 m/s on a dry road. The peak lateral error was reduced by 12% relative to the PID baseline. The method does not guarantee stability on icy roads. The prediction horizon was 10 steps, with a sampling period of 0.1 s. These results assume an accurate estimate of the tire-road friction coefficient. The longitudinal controller was not evaluated. Figure 3 is referenced, but its image is not part of the provided text.",
+  "cases": [
+    {"id":"scope-correct","type":"condition","attempt":"控制器在干燥道路、20米每秒条件下进行了仿真评估。","quote":"The lateral controller was evaluated in simulation at 20 m/s on a dry road.","expected":"supported","rubric":"保留仿真、车速和路面条件。"},
+    {"id":"scope-generalized","type":"condition","attempt":"控制器经过所有车速和道路条件下的实车验证。","quote":"The lateral controller was evaluated in simulation at 20 m/s on a dry road.","expected":"contradicted","rubric":"指出将限定仿真夸大为实车全工况，不补造实验。"},
+    {"id":"negation-correct","type":"negation","attempt":"该方法不能保证冰面上的稳定性。","quote":"The method does not guarantee stability on icy roads.","expected":"supported","rubric":"不能把不保证说成必然不稳定。"},
+    {"id":"negation-reversed","type":"negation","attempt":"该方法保证在冰面上稳定。","quote":"The method does not guarantee stability on icy roads.","expected":"contradicted","rubric":"指出否定被反转；这是严重条件错误。"},
+    {"id":"metric-correct","type":"metric","attempt":"相较PID基线，峰值横向误差降低12%。","quote":"The peak lateral error was reduced by 12% relative to the PID baseline.","expected":"supported","rubric":"保留指标、基线和相对改善，不推导RMSE。"},
+    {"id":"metric-swapped","type":"metric","attempt":"横向RMSE降低12厘米。","quote":"The peak lateral error was reduced by 12% relative to the PID baseline.","expected":"contradicted","rubric":"识别指标与量纲同时改变；不臆造实际误差数值。"},
+    {"id":"time-unit-correct","type":"unit","attempt":"预测时域10步，采样周期0.1秒。","quote":"The prediction horizon was 10 steps, with a sampling period of 0.1 s.","expected":"supported","rubric":"步数与采样周期是不同量。"},
+    {"id":"time-unit-reversed","type":"unit","attempt":"预测时域10秒，采样周期0.1毫秒。","quote":"The prediction horizon was 10 steps, with a sampling period of 0.1 s.","expected":"contradicted","rubric":"识别steps与秒、秒与毫秒的错误，不把量纲问题当措辞差异。"},
+    {"id":"equivalent-term","type":"equivalent-translation","attempt":"这些结果以准确估计轮胎与路面之间的摩擦系数为前提。","quote":"These results assume an accurate estimate of the tire-road friction coefficient.","expected":"supported","rubric":"接受与‘轮胎—路面附着系数’等义的表达，不仅按词面判错。"},
+    {"id":"missing-causality","type":"missing-evidence","attempt":"误差改善是由神经网络架构造成的。","quote":"The peak lateral error was reduced by 12% relative to the PID baseline.","expected":"insufficient","rubric":"误差变化不能证明未提供的因果机制，提示补方法或消融证据。"},
+    {"id":"unseen-figure","type":"unseen-figure","attempt":"图3中蓝线在2秒时达到0.3米。","quote":"Figure 3 is referenced, but its image is not part of the provided text.","expected":"insufficient","rubric":"明确没有图像，不能声称看到曲线颜色、坐标和具体数值。"},
+    {"id":"unevaluated-axis","type":"limitation","attempt":"论文已经评估纵向控制性能。","quote":"The longitudinal controller was not evaluated.","expected":"contradicted","rubric":"区分横向和纵向任务，不把一种控制效果推广到另一种。"}
+  ]
+}

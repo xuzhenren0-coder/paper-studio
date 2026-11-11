@@ -3,13 +3,13 @@ import argparse,hashlib,importlib.util,importlib.metadata,json,os,shutil,sys,url
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.1.1'
+VERSION='0.1.2'
 PY_VERSION='3.14.10'
 PY_URL=f'https://www.python.org/ftp/python/{PY_VERSION}/python-{PY_VERSION}-embed-amd64.zip'
 PY_SHA='90905e64a840557d8c1bc4f5b74db3d7ee85e3ffb217611cac1c7813acea4159'
-FILES=['server.py','discovery.py','discovery_learning.py','discovery_venues.py','start.ps1','stop.ps1','launcher-common.ps1','启动研读.cmd','停止研读.cmd','requirements.txt','LICENSE','NOTICE','THIRD_PARTY_NOTICES.md','.gitignore']
-WEB=['index.html','workspace.js','reader.js','reader.css','text-layer.css','discovery-ui.js','discovery-enhancements.js','discovery.css']
-MAILING=['__init__.py','core.py','aliyun.py','store.py','demo.py','README.md']
+FILES=['evidence_feedback.py','server.py','learning_flow.py','discovery.py','discovery_learning.py','discovery_venues.py','start.ps1','stop.ps1','launcher-common.ps1','启动研读.cmd','停止研读.cmd','requirements.txt','LICENSE','NOTICE','THIRD_PARTY_NOTICES.md','.gitignore']
+WEB=['evidence-anchor.js','feedback-view.js','index.html','workspace.js','learning-flow.js','study.css','reader.js','reader.css','text-layer.css','discovery-ui.js','discovery-enhancements.js','discovery.css','members.html','members.js','members.css']
+MAILING=['__init__.py','core.py','aliyun.py','store.py','demo.py','README.md','member_bridge.py','secret_config.py']
 
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 def copy(source,target):
@@ -21,7 +21,7 @@ def safe_extract(archive,target):
         if any(not (target/n).resolve().is_relative_to(target) for n in z.namelist()):raise ValueError('Archive contains unsafe paths')
         z.extractall(target)
 def archive(folder,target):
-    with zipfile.ZipFile(target,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+    with zipfile.ZipFile(target,'w',zipfile.ZIP_DEFLATED,compresslevel=6,strict_timestamps=False) as z:
         for p in sorted(folder.rglob('*')):
             if p.is_file():z.write(p,p.relative_to(folder.parent))
 def build(pdfjs,output):
@@ -58,8 +58,26 @@ def build(pdfjs,output):
     shutil.copytree(staging,source)
     copy(ROOT/'tools/build_release.py',source/'tools/build_release.py')
     copy(ROOT/'tools/verify_release.py',source/'tools/verify_release.py')
-    for name in ['test_server.py','test_discovery.py','test_discovery_learning.py','test_morning_mail.py','preview_discovery.py']:
+    for name in ['test_server.py','test_evidence_feedback.py','test_evidence_anchor.mjs','test_discovery.py','test_discovery_learning.py','test_learning_flow.py','test_morning_mail.py','preview_discovery.py']:
         copy(ROOT/'tests'/name,source/'tests'/name)
+    copy(ROOT/'tests/fixtures/evidence_learning_cases.json',source/'tests/fixtures/evidence_learning_cases.json')
+    # Publish authored subscription and cloud modules without machine-local configuration.
+    for path in sorted((ROOT/'mailing').glob('*.py')):
+        copy(path,source/'mailing'/path.name)
+    for directory in ['app','components','hooks','lib','scripts','worker','drizzle','db','vendor','public']:
+        folder=ROOT/'subscription-web'/directory
+        if folder.exists():
+            for path in sorted(folder.rglob('*')):
+                if path.is_file() and path.suffix in ('.ts','.tsx','.mts','.mjs','.js','.css','.sql','.json','.sh','.svg','.LICENSE'):
+                    copy(path,source/'subscription-web'/path.relative_to(ROOT/'subscription-web'))
+    for name in ['package.json','pnpm-lock.yaml','pnpm-workspace.yaml','next.config.ts','vite.config.ts','tsconfig.json','eslint.config.mjs','postcss.config.ts','postcss.config.mjs','drizzle.config.ts','.gitignore']:
+        path=ROOT/'subscription-web'/name
+        if path.is_file():copy(path,source/'subscription-web'/name)
+    copy(ROOT/'README-subscription.md',source/'subscription-web/README.md')
+    copy(ROOT/'README-subscription.md',source/'README-subscription.md')
+    hosting=source/'subscription-web/.openai/hosting.json'
+    hosting.parent.mkdir(parents=True,exist_ok=True)
+    hosting.write_text(json.dumps({'d1':'DB','r2':None},indent=2)+'\n',encoding='utf-8')
     download=ROOT/'build/downloads'/f'python-{PY_VERSION}-embed-amd64.zip'
     download.parent.mkdir(parents=True,exist_ok=True)
     if not download.exists():

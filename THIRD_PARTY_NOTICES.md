@@ -7,3 +7,5 @@ The project's PolyForm Noncommercial license applies to its own code. It does no
 - PDF.js / pdfjs-dist 5.6.205: Apache-2.0. Full license: vendor/pdfjs/LICENSE. The cmaps, standard_fonts, wasm and iccs resource directories retain their included license/notice files. Source: https://github.com/mozilla/pdf.js .
 
 Unmodified dependencies remain under their respective licenses. Public paper metadata and linked PDFs are not relicensed as this project's code. No user papers or learning records are included in the release.
+
+Subscription frontend source additionally includes a vendored MIT-licensed Sites Vite plugin; its full upstream notice is retained at subscription-web/scripts/vite/sites-vite-plugin.LICENSE. Other frontend dependencies are specified in subscription-web/package.json and pnpm-lock.yaml and retain their own licenses.

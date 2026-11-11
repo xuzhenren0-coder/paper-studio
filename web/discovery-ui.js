@@ -11,9 +11,9 @@ export function initDiscovery(hooks){
  const link=(label,url)=>{const a=e('a','result-link',label);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;};
  function options(){return {query:$('searchQuery').value.trim(),days:Number($('searchDays').value),preprints:$('includePreprints').checked,exclude_doi:D.seedDoi,quality:$('sourceRange').value};}
  function valid(){if(options().query.length<3){toast('请先生成并确认英文检索词。');return false;}return true;}
- async function show(){if(!D.active){await hooks.enter();D.active=true;view.hidden=false;$('discoverBtn').setAttribute('aria-current','page');$('readBtn').removeAttribute('aria-current');}await refreshState();await enhancements.onShow();}
- async function hide(){if(!D.active)return;enhancements.hideTip();view.hidden=true;D.active=false;await hooks.leave();$('readBtn').setAttribute('aria-current','page');$('discoverBtn').removeAttribute('aria-current');}
- $('discoverBtn').onclick=()=>show().catch(err=>toast(err.message));$('readBtn').onclick=()=>hide().catch(err=>toast(err.message));
+ async function show(){if(!D.active){await hooks.enter();D.active=true;view.hidden=false;}await refreshState();await enhancements.onShow();}
+ async function hide({restore=true}={}){if(!D.active)return;enhancements.hideTip();view.hidden=true;D.active=false;await hooks.leave(restore);}
+ $('discoverBtn').onclick=()=>show().catch(err=>toast(err.message));
  async function refreshState(){const s=await api('/api/discovery/state');D.topics=s.topics;D.bookmarks=s.bookmarks;D.catalog=s.catalog;$('bookmarkCount').textContent=s.bookmarks.length;renderTopics();$('topicJobStatus').textContent=s.refreshing?'正在检查更新…':'';return s;}
  function fillTopic(t){$('topicName').value=t.name;$('searchQuery').value=t.options.query;$('searchDays').value=t.options.days;$('includePreprints').checked=t.options.preprints;$('sourceRange').value=t.options.quality||'curated';D.seedDoi=t.options.exclude_doi||'';enhancements.sourceHelp();}
  function renderTopics(){const list=$('topicList');list.replaceChildren();if(!D.topics.length)list.append(e('p','topic-description','暂无追踪主题'));
@@ -35,7 +35,7 @@ export function initDiscovery(hooks){
  $('refreshTopics').onclick=()=>backgroundRefresh(true).catch(err=>toast(err.message));
  function isBookmarked(key){return D.bookmarks.some(r=>r.key===key);}
  async function bookmark(r){try{await api('/api/discovery/bookmark',{key:r.key,enabled:!isBookmarked(r.key)});await refreshState();renderResults();await enhancements.refreshKeywords();if(detail.open&&D.selected?.key===r.key)showDetail(r);}catch(err){toast(err.message);}}
- function renderResults(){const holder=$('searchResults');holder.replaceChildren();for(const b of document.querySelectorAll('[data-result-tab]'))b.setAttribute('aria-selected',String(b.dataset.resultTab===D.tab));
+ function renderResults(){compactSearch();const holder=$('searchResults');holder.replaceChildren();for(const b of document.querySelectorAll('[data-result-tab]'))b.setAttribute('aria-selected',String(b.dataset.resultTab===D.tab));
   let rows=D.tab==='bookmarks'?D.bookmarks:D.tab==='preprints'?D.result?.preprint_results||[]:D.result?.results||[];
   $('allCount').textContent=D.result?'('+D.result.results.length+')':'';
   if(D.tab==='bookmarks')$('searchStatus').textContent='我的收藏 · '+rows.length+' 篇';
@@ -54,5 +54,27 @@ export function initDiscovery(hooks){
  async function assist(task,button,r=null){const cfg=await api('/api/config');if(!cfg.configured){toast('请先连接模型');if(detail.open)detail.close();await hooks.openSettings();return;}button.disabled=true;const serial=D.serial;try{const result=await api('/api/discovery/assist',{task,query:options().query,topic:$('topicName').value,key:r?.key});if(task==='expand'){if(serial!==D.serial)return;$('searchQuery').value=result.query;$('prepareNotice').textContent='AI 扩展（请确认）：'+result.text;}else{$('detailAI').textContent='AI 辅助 · 仅基于标题和摘要，待核查\n\n'+result.text;$('detailAI').hidden=false;}}catch(err){toast(err.message);}finally{button.disabled=false;}}
  $('aiExpand').onclick=()=>assist('expand',$('aiExpand'));
  enhancements=enhanceDiscovery({D,hooks,view,detail,renderResults,showDetail});
- return {show,hide,start:async()=>{await refreshState();await enhancements.onShow();await backgroundRefresh();}};
+ const searchSummary = e('div', 'search-summary');
+ searchSummary.hidden = true;
+ const summaryText = e('span');
+ const editSearch = e('button', 'secondary', '修改条件');
+ const clearSummary = e('button', 'text-button', '清空');
+ editSearch.onclick = () => {
+  $('searchForm').hidden = false;
+  searchSummary.hidden = true;
+  $('topicName').focus();
+ };
+ clearSummary.onclick = () => $('clearSearch').click();
+ searchSummary.append(summaryText, editSearch, clearSummary);
+ $('searchForm').before(searchSummary);
+ function compactSearch() {
+  const hasResults = Boolean(D.result?.results?.length);
+  view.classList.toggle('has-results', hasResults);
+  $('searchForm').hidden = hasResults;
+  searchSummary.hidden = !hasResults;
+  summaryText.textContent = (D.result?.query || $('searchQuery').value) + ' · ' + (D.result?.results?.length || 0) + ' 篇';
+  if (hasResults && $('toggleKeywords').getAttribute('aria-expanded') === 'true') $('toggleKeywords').click();
+ }
+
+ return {show,hide,searchFromLearning:async query=>{await show();++D.serial;D.busy=false;D.result=null;D.seedDoi=hooks.getPaper()?.metadata.doi||'';$('topicName').value='';$('searchQuery').value=query||'';$('searchDays').value='365';$('includePreprints').checked=false;$('sourceRange').value='curated';if(!query)await prepare(true);await search(false);},start:async()=>{await refreshState();await enhancements.onShow();await backgroundRefresh();}};
 }

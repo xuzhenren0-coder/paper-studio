@@ -4,7 +4,7 @@
 
 ## 普通用户：下载运行
 
-1. 在仓库 Releases 下载 `PaperStudio-0.1.1-windows-x64.zip`（不是 GitHub 自动生成的 Source code ZIP）。
+1. 在仓库 Releases 下载 `PaperStudio-0.1.2-windows-x64.zip`（不是 GitHub 自动生成的 Source code ZIP）。
 2. 在 Windows 10/11 x64 上完整解压到普通文件夹，双击 `启动研读.cmd`。不要直接在压缩包中运行。无需安装 Codex、Python 或 Node。
 3. 浏览器打开 `http://127.0.0.1:8765/`。导入你有权使用的文字型英文PDF。扫描件OCR、加密PDF不在本版承诺范围。
 4. 使用完双击 `停止研读.cmd`。关闭浏览器不会自动停止后台服务。
@@ -45,7 +45,7 @@ py -m venv .venv
 .\start.ps1
 ```
 
-Releases中的 `paper-studio-0.1.1-source.zip` 已附PDF.js静态资源。Git仓库及GitHub自动生成的Source code归档不存放这些第三方二进制资源；从这些方式获取源码时，请先从Release源码包提取 `vendor` 和 `licenses` 文件夹到项目根目录。正常运行不需要Node。服务仅监听本机，不是多人云端网站，不应直接暴露到公网。
+Releases中的 `paper-studio-0.1.2-source.zip` 已附PDF.js静态资源。Git仓库及GitHub自动生成的Source code归档不存放这些第三方二进制资源；从这些方式获取源码时，请先从Release源码包提取 `vendor` 和 `licenses` 文件夹到项目根目录。正常运行不需要Node。服务仅监听本机，不是多人云端网站，不应直接暴露到公网。
 
 构建Windows x64发布包：在安装了requirements依赖的Python中运行 `python tools/build_release.py`。脚本从python.org获取固定版本嵌入式运行时并验证官方SHA256，产物在dist目录。需要联网下载；可使用现有vendor/pdfjs，或通过 `--pdfjs` 指定完整pdfjs-dist 5.6.205目录。不会打包个人数据库、论文、内部备份或截图。
 
@@ -53,4 +53,10 @@ Releases中的 `paper-studio-0.1.1-source.zip` 已附PDF.js静态资源。Git仓
 
 已提供手机窄屏布局：学习工具为底部抽屉，发现页控件自适应，点击论文标题可查看简介。当前服务仅监听本机；尚未提供手机可访问的云端入口，也未完成 Android/iPhone 真机验证。Windows 下载包支持 Windows 10/11 x64，未适配 Windows 7。
 
-晨读邮件目前只提供开发模块与原创排版预览，默认禁止真实发送。尚未部署每日08:00云端任务、公开订阅及退订服务，不会因为升级而自动发邮件。开发状态见 `mailing/README.md`。
+晨读提供邀请制订阅、邮箱确认、个人关键词、北京时间发送时刻与星期、讲解难度和篇幅、暂停与退订模块。源码与免安装包不包含部署者的邮箱凭据或现有订阅用户，也不会因下载安装而自动发送邮件。订阅网页与云端邮件任务须单独配置部署，见 `README-subscription.md`（源码包）和 `mailing/README.md`。
+
+## 0.1.2 的学习与订阅更新
+
+四项自主解释按题展开，集中显示作答、依据和本项反馈。修改后会标记旧反馈，历史结果按日期收起，移除依据可撤销。订阅前端修复了未保存草稿与暂停/恢复的交互，源码位于 subscription-web，须自行部署并连接订阅服务。
+
+

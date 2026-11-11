@@ -61,7 +61,7 @@ class DiscoveryTests(unittest.TestCase):
             with self.assertRaises(ValueError):discovery.validate_public_url('https://example.org/pdf')
         with self.assertRaises(ValueError):discovery.validate_public_url('file:///secret')
     def test_real_pdf_import_is_idempotent_and_does_not_claim_peer_review(self):
-        key=self.search()['results'][0]['key'];raw=(server.ROOT/'samples/vehicle-control.pdf').read_bytes()
+        key=self.search([candidate(identifier='10.3389/fmech.2026.1932727')])['results'][0]['key'];raw=(server.ROOT/'samples/vehicle-control.pdf').read_bytes()
         with patch('discovery.download_pdf',return_value=raw) as download:
             first=self.service.import_candidate(key);second=self.service.import_candidate(key);self.assertEqual(first['paper_id'],second['paper_id']);download.assert_called_once()
         self.assertEqual(server.get_paper(first['paper_id'])['metadata']['review_status'],'待核实')

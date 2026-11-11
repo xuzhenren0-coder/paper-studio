@@ -7,9 +7,11 @@ import server
 
 class ModelStub(BaseHTTPRequestHandler):
     bad_quote=False
+    last_request=None
     def log_message(self,*args): pass
     def do_POST(self):
         body=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+        ModelStub.last_request=body
         text=body['messages'][1]['content']
         if '原文片段：\n' not in text:
             context=json.loads(text)
@@ -22,6 +24,11 @@ class ModelStub(BaseHTTPRequestHandler):
         source=context.split('\n',1)[1].split('\n\n[',1)[0]
         quote=source[:180] if not self.bad_quote else 'This quotation does not occur anywhere in the supplied paper.'
         reply={'text':'测试模型输出，仅用于验证接口和引用链路。','citations':[{'id':citation_id,'quote':quote}]}
+        if '"feedback"' in body['messages'][0]['content']:
+            reply={'feedback':[{'field':field,'claims':[{'text':'测试判断：依据覆盖本项。' if i==0 else '测试判断：本项材料不足。',
+                'status':'supported' if i==0 else 'insufficient','evidence_ids':['C1'] if i==0 else []}],
+                'hint':'测试提示：对照原文保留条件。','analysis':'测试补充分析。'} for i,field in enumerate(server.evidence_feedback.FIELDS)],
+                'citations':[{'ref':'C1','id':citation_id,'quote':quote}]}
         raw=json.dumps({'choices':[{'message':{'content':json.dumps(reply)}}],'usage':{'total_tokens':42}}).encode()
         self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(raw)
 
@@ -131,5 +138,77 @@ class Integration(unittest.TestCase):
         self.configure()
         r=self.request('/api/discovery/assist',{'task':'expand','topic':'车辆横向控制'})
         self.assertEqual(r['query'],'vehicle lateral control')
+
+    def test_complete_learning_loop_keeps_original_work_exercises_evidence_and_history(self):
+        self.configure();p=self.request('/api/upload',self.sample,raw=True);pid=p['id'];source=p['pages'][0]['text'][100:260].strip()
+        evidence=self.request('/api/study/evidence',{'paper_id':pid,'page':1,'source':source})
+        self.assertEqual(evidence['quote'],source)
+        notes={'studyGoal':'测试：理解车辆横向控制方法','studyQuestion':'测试：控制方法依赖哪些假设？','personalNotes':'测试：应对照模型条件阅读结论。',
+            'answerProblem':'测试学生对研究问题的解释','answerMethod':'测试学生对方法与假设的解释','answerEvidence':'测试学生对关键证据的解释','answerLimit':'测试学生对结论边界的解释',
+            'studyEvidence':{k:[evidence] for k in ('answerProblem','answerMethod','answerEvidence','answerLimit')}}
+        self.request('/api/notes',{'paper_id':pid,'body':notes})
+        self.assertFalse(self.request('/api/study?paper_id='+pid)['ready'])
+        exercise={'paper_id':pid,'page':1,'source':source,'attempt':'测试：我的首次中文译文','revision':'测试：按原文条件修改后的译文','reflection':'测试：保留条件限制'}
+        first=self.request('/api/study/exercises',exercise);second=self.request('/api/study/exercises',exercise)
+        self.assertEqual(first['id'],second['id'])
+        feedback=self.request('/api/learn',dict(exercise,task='translation'))
+        self.assertEqual(feedback['attempt'],exercise['attempt']);self.assertEqual(feedback['source'],source)
+        # A second exercise cannot overwrite the original attempt/feedback pair.
+        other=self.request('/api/study/exercises',dict(exercise,attempt='测试：另一次独立作答'))
+        self.assertNotEqual(first['id'],other['id'])
+        summary=self.request('/api/learn',{'paper_id':pid,'task':'summary','page':1,'attempt':notes['personalNotes']})
+        self.assertTrue(summary['citations'])
+        completed=self.request('/api/study/complete',{'paper_id':pid});self.assertTrue(completed['completed'])
+        restored=self.request('/api/study?paper_id='+pid);self.assertEqual(restored['exercise_count'],2)
+        runs=self.request('/api/papers/'+pid+'/runs');self.assertEqual(next(r for r in runs if r['task']=='translation')['attempt'],exercise['attempt'])
+        exported=self.request('/api/study/export?paper_id='+pid)['markdown']
+        for value in (exercise['attempt'],exercise['revision'],notes['answerEvidence'],source,'当时的作答','原文依据：PDF 第 1 页'):
+            self.assertIn(value,exported)
+        saved=self.request('/api/papers/'+pid+'/notes')['body'];saved['readerPosition']={'page':2}
+        self.request('/api/notes',{'paper_id':pid,'body':saved});self.assertTrue(self.request('/api/study?paper_id='+pid)['completed'])
+        saved['answerMethod']='测试：重新修改理解'
+        self.request('/api/notes',{'paper_id':pid,'body':saved});self.assertFalse(self.request('/api/study?paper_id='+pid)['completed'])
+
+    def test_forged_learning_completion_and_evidence_are_not_accepted(self):
+        p=self.request('/api/upload',self.sample,raw=True);pid=p['id']
+        self.request('/api/notes',{'paper_id':pid,'body':{'studyCompletion':{'at':1,'signature':'fake'}}})
+        self.assertNotIn('studyCompletion',self.request('/api/papers/'+pid+'/notes')['body'])
+        for path,body in [('/api/study/complete',{}),('/api/study/evidence',{'page':1,'source':'This invented quote is not in the paper.'}),('/api/notes',{'body':{'studyEvidence':{'answerProblem':[{'page':1,'quote':'Invented quote'}]}}})]:
+            with self.subTest(path=path),self.assertRaises(urllib.error.HTTPError) as error:self.request(path,dict(body,paper_id=pid))
+            self.assertEqual(error.exception.code,400)
+
+    def test_feedback_includes_bound_distant_evidence_and_persists_snapshot(self):
+        self.configure();p=self.request('/api/upload',self.sample,raw=True);pid=p['id'];source=p['pages'][9]['text'][100:270].strip()
+        evidence=self.request('/api/study/evidence',{'paper_id':pid,'page':10,'source':source})
+        self.assertIn('anchor',evidence)
+        notes={'answerProblem':'学生中文解释：该方法需要结合工况判断。','studyEvidence':{'answerProblem':[evidence]}}
+        self.request('/api/notes',{'paper_id':pid,'body':notes});snap=server.evidence_feedback.snapshot(notes)
+        result=self.request('/api/learn',{'paper_id':pid,'task':'feedback','page':2,'study_snapshot':snap})
+        sent=ModelStub.last_request['messages'][1]['content']
+        self.assertIn('e-answerProblem-1',sent);self.assertIn(source,sent)
+        self.assertEqual(result['study_snapshot'],snap);self.assertEqual(result['feedback'][0]['status'],'supported')
+        self.assertEqual(result['feedback'][1]['status'],'insufficient');self.assertEqual(result['citations'][0]['page'],10)
+        old_attempt=result['attempt'];notes['answerProblem']='修改后的作答';self.request('/api/notes',{'paper_id':pid,'body':notes})
+        restored=self.request('/api/papers/'+pid+'/runs')[0]
+        self.assertEqual(restored['attempt'],old_attempt);self.assertEqual(restored['study_snapshot'],snap)
+        exported=self.request('/api/study/export?paper_id='+pid)['markdown'];self.assertIn('当时绑定的原文依据',exported);self.assertIn(source,exported)
+        before=ModelStub.last_request
+        with self.assertRaises(urllib.error.HTTPError) as error:self.request('/api/learn',{'paper_id':pid,'task':'feedback','page':2,'study_snapshot':snap})
+        self.assertIn('已变化',json.loads(error.exception.read())['error']);self.assertIs(ModelStub.last_request,before)
+
+    def test_new_reader_modules_are_served(self):
+        for file in ('evidence-anchor.js','feedback-view.js'):
+            with urllib.request.urlopen(self.url+'/'+file) as response:self.assertIn(b'export',response.read())
+
+    def test_feedback_rejects_bad_citations_without_hiding_other_missing_items(self):
+        self.configure();p=self.request('/api/upload',self.sample,raw=True);pid=p['id']
+        self.request('/api/notes',{'paper_id':pid,'body':{'answerProblem':'学生解释：当前材料是否支持这个结论？'}})
+        ModelStub.bad_quote=True
+        try:
+            result=self.request('/api/learn',{'paper_id':pid,'task':'feedback','page':1})
+            self.assertFalse(result['citations']);self.assertEqual(len(result['feedback']),4)
+            self.assertTrue(all(r['status']=='insufficient' for r in result['feedback']))
+            self.assertTrue(result['feedback'][0]['claims'][0]['citation_issue'])
+        finally:ModelStub.bad_quote=False
 
 if __name__=='__main__':unittest.main(verbosity=2)

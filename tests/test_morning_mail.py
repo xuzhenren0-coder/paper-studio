@@ -1,4 +1,4 @@
-import copy,json,tempfile,unittest,urllib.parse
+import copy,io,json,tempfile,unittest,urllib.parse
 from datetime import datetime,timedelta
 from pathlib import Path
 from unittest.mock import Mock,patch
@@ -63,5 +63,22 @@ class MorningMailTests(unittest.TestCase):
             request=network.return_value.open.call_args.args[0];fields=urllib.parse.parse_qs(request.data.decode())
             self.assertEqual(fields['ToAddress'],['reader@example.org']);self.assertEqual(fields['AddressType'],['1']);self.assertEqual(request.full_url,'https://dm.aliyuncs.com/')
             self.assertIn('HtmlBody',fields);self.assertIn('TextBody',fields);network.return_value.open.assert_called_once()
+
+    def test_block_lists_accept_live_schema_without_request_id_and_follow_pages(self):
+        responses=[{'Data':[{'BlockEmail':'stopped@example.org'}],'NextToken':'page-2'},
+                   {'Data':[],'NextToken':''},{'Data':[],'NextToken':''}]
+        sender=AliyunSender('sender@example.org','test-id','test-secret')
+        with patch('urllib.request.build_opener') as network:
+            network.return_value.open.side_effect=[io.BytesIO(json.dumps(x).encode()) for x in responses]
+            self.assertEqual(sender.blocked_recipients(),{'stopped@example.org'})
+            second=network.return_value.open.call_args_list[1].args[0]
+            self.assertEqual(urllib.parse.parse_qs(urllib.parse.urlsplit(second.full_url).query)['NextToken'],['page-2'])
+
+    def test_block_list_error_or_missing_schema_never_becomes_empty_success(self):
+        sender=AliyunSender('sender@example.org','test-id','test-secret')
+        for response in ({'Code':'Forbidden','Data':[],'NextToken':''},{'Success':False,'Data':[],'NextToken':''},{'RequestId':'request'},{'Data':[],'NextToken':None}):
+            with self.subTest(response=response),patch('urllib.request.build_opener') as network:
+                network.return_value.open.return_value=io.BytesIO(json.dumps(response).encode())
+                with self.assertRaises(ValueError):sender.blocked_recipients()
 
 if __name__=='__main__':unittest.main()

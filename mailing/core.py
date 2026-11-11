@@ -6,6 +6,7 @@ import discovery_venues
 
 SHANGHAI=timezone(timedelta(hours=8))
 LICENSES={'https://creativecommons.org/licenses/by/4.0/':'CC BY 4.0','https://creativecommons.org/publicdomain/zero/1.0/':'CC0 1.0'}
+MANAGED_UNSUBSCRIBE='${DM:UNSUBSCRIBE_LINK}'
 def day(now=None):return (now or datetime.now(SHANGHAI)).astimezone(SHANGHAI).date()
 def https_url(value):
     p=urlsplit(str(value))
@@ -29,7 +30,7 @@ def validate_paper(p,today=None):
     if normalize(p['excerpt']) not in normalize(p['source_text']):raise ValueError('节选未通过原文逐字匹配')
     words=re.findall(r"[A-Za-z]+(?:[-’'][A-Za-z]+)*",p['excerpt'])
     if not 100<=len(words)<=150:raise ValueError('节选应为100—150个英文单词')
-    if not re.search(r'[\u4e00-\u9fff]',p['title_zh']+p['excerpt_zh']):raise ValueError('缺少中文辅助内容')
+    if any(not re.search(r'[\u4e00-\u9fff]',p[k]) for k in ('title_zh','excerpt_zh')):raise ValueError('缺少中文辅助内容')
     if len(p['terms'])!=3 or any(not isinstance(x,dict) or not x.get('en') or not x.get('zh') for x in p['terms']):raise ValueError('应提供3个中英术语')
     return p
 def choose_paper(pool,topics,sent_dois,today=None):
@@ -45,42 +46,67 @@ def choose_paper(pool,topics,sent_dois,today=None):
     if not eligible:return None
     score,_,p,matches=max(eligible,key=lambda x:(x[0],x[1],x[2]['doi']))
     return dict(p,matched_terms=matches)
-def render(p,reader_name,unsubscribe_url,preview=False):
-    https_url(unsubscribe_url)
-    if not preview:validate_paper(p)
+def render(p,reader_name,unsubscribe_url,preview=False,today=None,provider_unsubscribe=False,owner_control=False):
+    if owner_control and (provider_unsubscribe or unsubscribe_url!='https://help.mail.qq.com/detail/106/985'):
+        raise ValueError('本人晨读停止指引无效')
+    if not (provider_unsubscribe and unsubscribe_url==MANAGED_UNSUBSCRIBE):https_url(unsubscribe_url)
+    if not preview:validate_paper(p,today)
     e=lambda value:html.escape(str(value),quote=True)
     source=https_url(p['source_url']);license_url=https_url(p['license_url'])
     title=('【排版测试】' if preview else '【研读晨读】')+p['title_zh']
     notice='<p style="font-size:12px;color:#7a8e98">排版示例 · 非真实论文</p>' if preview else ''
     doi='' if preview else '<br>DOI：'+e(p['doi'])
     rights='原创排版示例' if preview else '原文许可：<a href="'+e(license_url)+'">'+e(LICENSES[p['license_url']])+'</a> · 节选含中文翻译'
-    term_html=''.join('<tr><td style="padding:8px;border-bottom:1px solid #e1e8ea">'+e(x['en'])+'</td><td style="padding:8px;border-bottom:1px solid #e1e8ea">'+e(x['zh'])+'</td></tr>' for x in p['terms'])
+    if not preview: rights+=' · <a href="'+e(https_url(p['license_evidence_url']))+'">许可登记</a>'
+    abstract_source=(' · <a href="'+e(https_url(p['abstract_source_url']))+'">摘要来源：'+e(p.get('abstract_source','数据库'))+'</a>') if p.get('abstract_source_url') else ''
+    term_html=''.join('<tr><td style="padding:8px;border-bottom:1px solid #e1e8ea">'+e(x['en'])+'</td><td style="padding:8px;border-bottom:1px solid #e1e8ea">'+e(x['zh'])+('<br>'+e(x['explanation']) if x.get('explanation') else '')+'</td></tr>' for x in p['terms'])
     body=f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;background:#f4f7f8;color:#304d59;font-family:Arial,'Microsoft YaHei',sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:white;border:1px solid #dce6eb;border-radius:10px"><tr><td style="padding:28px">
-<p style="font-size:12px;letter-spacing:2px;color:#28777b">研读晨读</p>{notice}
+<p style="font-size:12px;letter-spacing:2px;color:#28777b">研读晨读</p><p style="font-size:13px;margin-top:14px">{e(reader_name)}，早上好。</p>{notice}
 <h1 style="font-size:23px;line-height:1.6">{e(p['title_zh'])}</h1><p style="font-size:15px;line-height:1.7">{e(p['title'])}</p><p style="font-size:12px;line-height:1.8;color:#70858f">{e(p['authors'])}<br>{e(p['source'])} · {e(p['published'])}{doi}</p>
-<h2 style="font-size:16px;margin-top:30px">英文节选</h2><p style="font-size:12px;color:#70858f">原文位置：{e(p['section'])}</p><blockquote style="margin:12px 0;padding:16px 18px;border-left:3px solid #2c7c80;background:#f1f7f7;font:16px/1.9 Georgia,serif">{e(p['excerpt'])}</blockquote>
+<h2 style="font-size:16px;margin-top:30px">英文节选</h2><p style="font-size:12px;color:#70858f">原文位置：{e(p['section'])}{abstract_source}</p><blockquote style="margin:12px 0;padding:16px 18px;border-left:3px solid #2c7c80;background:#f1f7f7;font:16px/1.9 Georgia,serif">{e(p['excerpt'])}</blockquote>
 <h2 style="font-size:16px;margin-top:28px">中文译文{'（示例）' if preview else '（机器翻译）'}</h2><p style="font-size:15px;line-height:1.95">{e(p['excerpt_zh'])}</p>
 <h2 style="font-size:16px;margin-top:28px">术语</h2><table width="100%" style="font-size:14px;border-collapse:collapse">{term_html}</table>
 <h2 style="font-size:16px;margin-top:28px">想一想</h2><p style="font-size:15px;line-height:1.9">{e(p['question'])}</p><p style="margin-top:25px"><a style="color:#237980" href="{e(source)}">查看原文与发表出处 ↗</a></p>
-<p style="font-size:11px;line-height:1.8;color:#7e929c">{rights}</p><hr style="border:0;border-top:1px solid #e0e8eb"><p style="font-size:11px;line-height:1.9"><a style="color:#4a7c85" href="{e(unsubscribe_url)}">退订晨读</a></p></td></tr></table></td></tr></table></body></html>'''
+<p style="font-size:11px;line-height:1.8;color:#7e929c">{rights}</p><hr style="border:0;border-top:1px solid #e0e8eb"><p style="font-size:11px;line-height:1.9"><a style="color:#4a7c85" data-link-type="unsubscribe" href="{e(unsubscribe_url)}">退订晨读</a></p></td></tr></table></td></tr></table></body></html>'''
+    body=body.replace('，早上好。','，你好。')
+    if p.get('reading_guide'):
+        marker='<h2 style="font-size:16px;margin-top:30px">英文节选</h2>'
+        body=body.replace(marker,'<h2 style="font-size:16px">阅读导引</h2><p style="font-size:15px;line-height:1.9">'+e(p['reading_guide'])+'</p>'+marker)
     preview_label='排版示例 · 非真实论文\n\n' if preview else ''
     doi_text='' if preview else ' | DOI '+p['doi']
     rights_text='原创排版示例' if preview else '许可：'+license_url
     plain=f"研读晨读\n\n{preview_label}{p['title_zh']}\n{p['title']}\n{p['authors']}\n{p['source']} | {p['published']}{doi_text}\n\n英文节选（{p['section']}）：\n{p['excerpt']}\n\n中文译文（{'示例' if preview else '机器翻译'}）：\n{p['excerpt_zh']}\n\n术语：\n"+'\n'.join(x['en']+'：'+x['zh'] for x in p['terms'])+f"\n\n想一想：{p['question']}\n原文：{source}\n{rights_text}\n退订：{unsubscribe_url}\n"
+    if p.get('abstract_source_url'):plain+='摘要来源：'+https_url(p['abstract_source_url'])+'\n许可登记：'+https_url(p['license_evidence_url'])+'\n'
+    if owner_control:
+        # Do not mislabel a help page as an automatic unsubscribe endpoint.
+        body=body.replace('data-link-type="unsubscribe"','data-link-type="owner-control"').replace('>退订晨读</a>','>停止晨读：在 QQ 邮箱中停用“研读晨读”授权码</a>')
+        plain=plain.replace('退订：'+unsubscribe_url,'停止晨读：在 QQ 邮箱中停用“研读晨读”授权码。操作指引：'+unsubscribe_url)
+    if p.get('reading_guide'):plain+='阅读导引：'+p['reading_guide']+'\n'
+    if any(t.get('explanation') for t in p['terms']):plain+='术语讲解：\n'+'\n'.join(t['en']+'：'+t.get('explanation','') for t in p['terms'])+'\n'
     return {'subject':title[:200],'html':body,'text':plain}
 def delivery_key(email,send_day):return hashlib.sha256((email_address(email).lower()+'|'+str(send_day)).encode()).hexdigest()
 
-def dispatch(store,sender,subscriber,paper,unsubscribe_url,now=None):
+def dispatch(store,sender,subscriber,paper,unsubscribe_url,now=None,provider_unsubscribe=False,owner_control=False,scheduled_for=None):
     now=now or datetime.now(SHANGHAI);local=now.astimezone(SHANGHAI)
-    if local.hour<8 or local.hour>=10:return {'status':'outside-window'}
+    if scheduled_for is None:
+        if local.hour<8 or local.hour>=10:return {'status':'outside-window'}
+    else:
+        from .preferences import due,validate_profile
+        if due(subscriber,local)!=scheduled_for:return {'status':'outside-window'}
+        validate_profile(paper,subscriber,local.date())
     address=email_address(subscriber['email'])
+    if owner_control and (getattr(sender,'owner_only',False) is not True or address.lower()!=getattr(sender,'account','').lower()):
+        raise ValueError('本人晨读收发邮箱不一致')
     if subscriber.get('confirmed') is not True or not subscriber.get('enabled',False):return {'status':'not-subscribed'}
-    u=urlsplit(https_url(unsubscribe_url))
-    if u.hostname in ('example.org','example.com','localhost') or u.hostname.endswith('.invalid'):raise ValueError('正式发送需要已部署的真实HTTPS退订入口')
+    if provider_unsubscribe:
+        if unsubscribe_url!=MANAGED_UNSUBSCRIBE or getattr(sender,'managed_unsubscribe',False) is not True:raise ValueError('托管退订未启用')
+    else:
+        u=urlsplit(https_url(unsubscribe_url))
+        if u.hostname in ('example.org','example.com','localhost') or u.hostname.endswith('.invalid'):raise ValueError('正式发送需要已部署的真实HTTPS退订入口')
     validate_paper(paper,local.date())
     if paper['doi'].lower() in {x.lower() for x in store.sent_dois(address)}:return {'status':'already-read'}
-    payload=render(paper,subscriber.get('name') or '同学',unsubscribe_url)
+    payload=render(paper,subscriber.get('name') or '同学',unsubscribe_url,today=local.date(),provider_unsubscribe=provider_unsubscribe,owner_control=owner_control)
     key=delivery_key(address,local.date())
     if not store.claim(key,{'day':local.date().isoformat(),'doi':paper['doi'],'recipient':address}):return {'status':'already-claimed'}
     # Once submitted, timeout can mean accepted: never automatically submit this claim again.
